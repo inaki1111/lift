@@ -106,9 +106,9 @@ class UR5CubeLiftEnvCfg(LiftEnvCfg):
             visualizer_cfg=marker_cfg,
             target_frames=[
                 FrameTransformerCfg.FrameCfg(
-                    prim_path="{ENV_REGEX_NS}/Robot/wrist_3_link",
+                    prim_path="{ENV_REGEX_NS}/Robot/gripper_link",
                     name="end_effector",
-                    offset=OffsetCfg(pos=[0.0, 0.207, 0.0],rot = [0.5, 0.5, -0.5, 0.5]),
+                    offset=OffsetCfg(pos=[0.0, 0, 0.0]),
                 ),
             ],
         )

@@ -41,12 +41,12 @@ class UR5CubeLiftEnvCfg(joint_pos_env_cfg.UR5CubeLiftEnvCfg):
                 "wrist_2_joint",
                 "wrist_3_joint",
             ],
-            body_name="wrist_3_link", #wrist_3_link
+            body_name="gripper_link", #wrist_3_link
             controller=DifferentialIKControllerCfg(
                 command_type="pose",
                 use_relative_mode=False,
                 ik_method="dls"),
-            body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0.207, 0.0],)) #pos=[0.0, 0.207, 0.0]
+            body_offset=DifferentialInverseKinematicsActionCfg.OffsetCfg(pos=[0.0, 0, 0.0],)) #pos=[0.0, 0.207, 0.0]
 @configclass
 class UR5CubeLiftEnvCfg_PLAY(UR5CubeLiftEnvCfg):
     def __post_init__(self):
