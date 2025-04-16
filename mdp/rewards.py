@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 import torch
 from typing import TYPE_CHECKING
 
@@ -13,7 +14,9 @@ if TYPE_CHECKING:
 
 
 def object_is_lifted(
-    env: ManagerBasedRLEnv, minimal_height: float, object_cfg: SceneEntityCfg = SceneEntityCfg("object")
+    env: ManagerBasedRLEnv,
+    minimal_height: float,
+    object_cfg: SceneEntityCfg = SceneEntityCfg("object")
 ) -> torch.Tensor:
     """Reward the agent for lifting the object above the minimal height."""
     object: RigidObject = env.scene[object_cfg.name]
@@ -43,34 +46,34 @@ def object_ee_distance(
     ee_w = ee_frame.data.target_pos_w[..., 0, :]
     
     # Imprimir posiciones
-    print("Posición del objeto (cubo):")
-    print(cube_pos_w)
-    print("Posición del efector final:")
-    print(ee_w)
+    #print("Posición del objeto (cubo):")
+    #print(cube_pos_w)
+    #print("Posición del efector final:")
+    #print(ee_w)
     
     # Imprimir orientación del efector final (si está disponible)
     if hasattr(ee_frame.data, "target_quat_w"):
         ee_orient = ee_frame.data.target_quat_w[..., 0, :]
-        print("Orientación del efector final (cuaternión):")
-        print(ee_orient)
+        #print("Orientación del efector final (cuaternión):")
+        #print(ee_orient)
     else:
         ee_orient = None
-        print("No se encontró información de orientación en el efector final.")
+        #print("No se encontró información de orientación en el efector final.")
     
     # Intentar imprimir la orientación del objeto (cubo)
     # Se asume que la orientación se encuentra en root_state_w[:, 3:7] si está disponible
     if hasattr(object.data, "root_state_w"):
         cube_orient = object.data.root_state_w[:, 3:7]
-        print("Orientación del objeto (cubo) (cuaternión):")
-        print(cube_orient)
+        #print("Orientación del objeto (cubo) (cuaternión):")
+        #print(cube_orient)
     else:
         cube_orient = None
-        print("No se encontró información de orientación en el objeto.")
+        #print("No se encontró información de orientación en el objeto.")
     
     # Calcular la distancia euclídea entre el objeto y el efector final.
     pos_error = torch.norm(cube_pos_w - ee_w, dim=1)
-    print("Error en posición (distancia euclídea) entre efector y objeto:")
-    print(pos_error)
+    #print("Error en posición (distancia euclídea) entre efector y objeto:")
+    #print(pos_error)
     
     # Calcular error angular entre las orientaciones, si se dispone de ambas
     if ee_orient is not None and cube_orient is not None:
@@ -78,10 +81,10 @@ def object_ee_distance(
         dot_product = torch.abs(torch.sum(ee_orient * cube_orient, dim=1))
         # Asegurarse de que el valor esté en el rango [0, 1]
         dot_product = torch.clamp(dot_product, max=1.0)
-        # Error angular (en radianes): 2*arccos(|dot(q1,q2)|)
+        # Error angular (en radianes): 2 * arccos(|dot(q1,q2)|)
         orient_error = 2 * torch.acos(dot_product)
-        print("Error angular (radianes) entre efector y objeto:")
-        print(orient_error)
+        #print("Error angular (radianes) entre efector y objeto:")
+        #print(orient_error)
     else:
         orient_error = None
     
@@ -113,3 +116,40 @@ def object_goal_distance(
     distance = torch.norm(des_pos_w - object.data.root_pos_w[:, :3], dim=1)
     # Recompensa solo si el objeto está elevado por encima de la altura mínima.
     return (object.data.root_pos_w[:, 2] > minimal_height) * (1 - torch.tanh(distance / std))
+
+
+def gripper_close_reward(
+    env,
+    gripper_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
+    threshold: float = 1.0
+) -> torch.Tensor:
+
+    import math  # Asegúrate de importar math si no lo has hecho
+
+    robot = env.scene[gripper_cfg.name]
+    # Obtener los nombres de las articulaciones del gripper y sus índices dinámicamente.
+    left_joint_name = "robotiq_85_left_knuckle_joint"
+    right_joint_name = "robotiq_85_right_knuckle_joint"
+    left_index = robot.data.joint_names.index(left_joint_name)
+    right_index = robot.data.joint_names.index(right_joint_name)
+    
+    # Extraer las posiciones actuales de las articulaciones del gripper
+    left_value = robot.data.joint_pos[:, left_index]
+    right_value = robot.data.joint_pos[:, right_index]
+    
+    # Combinar en un tensor de forma (num_envs, 2)
+    gripper_state = torch.stack([left_value, right_value], dim=1)
+    
+    # Definir el objetivo de cierre (41° convertidos a radianes para cada articulación)
+    target_close = torch.tensor([math.radians(41.0), math.radians(41.0)], device=gripper_state.device)
+    error = torch.norm(gripper_state - target_close, dim=1)
+    print("gripper_state:", gripper_state)
+    reward = 1 - torch.tanh(error / threshold)
+
+
+    
+    print("Índices gripper -> Left:", left_index, "Right:", right_index)
+    print("Error en gripper (norma) =", error)
+    print("Recompensa de cierre de garra =", reward)
+    
+    return reward
