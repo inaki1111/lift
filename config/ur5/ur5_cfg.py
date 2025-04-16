@@ -53,8 +53,8 @@ UR5_CFG = ArticulationCfg(
         ),
         "gripper_actuator": ImplicitActuatorCfg(
             joint_names_expr=["robotiq_85_left_knuckle_joint","robotiq_85_right_knuckle_joint"],
-            effort_limit=17.0,
-            velocity_limit=10.0,
+            effort_limit=22.0,  #17.0
+            velocity_limit=15.0,   #10
             stiffness=5.0,
             damping=25.0,
         ),

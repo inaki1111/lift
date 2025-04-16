@@ -147,11 +147,13 @@ class RewardsCfg:
         params={"std": 0.3, "minimal_height": 0.04, "command_name": "object_pose"},
         weight=5.0,
     )
+
+
     # Nuevo término de recompensa para incentivar que la garra se cierre
-    gripper_close = RewTerm(func=mdp.gripper_close_reward, params={"threshold": 1.0}, weight=10.0)
+    gripper_close = RewTerm(func=mdp.gripper_close_reward, params={"threshold": 0.5}, weight=5.0)
 
 
-    
+
     # action penalty
     action_rate = RewTerm(func=mdp.action_rate_l2, weight=-1e-4)
     joint_vel = RewTerm(func=mdp.joint_vel_l2, weight=-1e-4, params={"asset_cfg": SceneEntityCfg("robot")})
@@ -206,7 +208,7 @@ class LiftEnvCfg(ManagerBasedRLEnvCfg):
         """Post initialization."""
         # general settings
         self.decimation = 2
-        self.episode_length_s = 5.0
+        self.episode_length_s = 10.0
         # simulation settings
         self.sim.dt = 0.01  # 100Hz
         self.sim.render_interval = self.decimation

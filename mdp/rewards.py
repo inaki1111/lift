@@ -121,13 +121,15 @@ def object_goal_distance(
 def gripper_close_reward(
     env,
     gripper_cfg: SceneEntityCfg = SceneEntityCfg("robot"),
-    threshold: float = 1.0
+    threshold: float = 0.5,
+    near_thresh: float = 0.7  # Distancia mínima para considerar que el efector está cerca del objeto.
 ) -> torch.Tensor:
+    import math
 
-    import math  # Asegúrate de importar math si no lo has hecho
-
+    # Obtener el robot
     robot = env.scene[gripper_cfg.name]
-    # Obtener los nombres de las articulaciones del gripper y sus índices dinámicamente.
+    
+    # Definir los nombres y extraer los índices de las articulaciones del gripper.
     left_joint_name = "robotiq_85_left_knuckle_joint"
     right_joint_name = "robotiq_85_right_knuckle_joint"
     left_index = robot.data.joint_names.index(left_joint_name)
@@ -140,16 +142,38 @@ def gripper_close_reward(
     # Combinar en un tensor de forma (num_envs, 2)
     gripper_state = torch.stack([left_value, right_value], dim=1)
     
-    # Definir el objetivo de cierre (41° convertidos a radianes para cada articulación)
+    # Definir el objetivo de cierre (41° convertidos a radianes)
     target_close = torch.tensor([math.radians(41.0), math.radians(41.0)], device=gripper_state.device)
-    error = torch.norm(gripper_state - target_close, dim=1)
-    print("gripper_state:", gripper_state)
-    reward = 1 - torch.tanh(error / threshold)
-
-
     
-    print("Índices gripper -> Left:", left_index, "Right:", right_index)
-    print("Error en gripper (norma) =", error)
-    print("Recompensa de cierre de garra =", reward)
+    # Calcular el error en el gripper (norma de la diferencia)
+    error = torch.norm(gripper_state - target_close, dim=1)
+    
+    # Obtener la posición actual del efector final:
+    ee_frame = env.scene["ee_frame"]  # Asegúrate de que el nombre registrado en la escena sea "ee_frame"
+    ee_pos = ee_frame.data.target_pos_w[..., 0, :]  # [num_envs, 3]
+    
+    # Obtener la posición del objeto (cubo)
+    object_state = env.scene["object"]
+    cube_pos = object_state.data.root_pos_w  # [num_envs, 3]
+    
+    # Calcular la distancia entre el efector y el objeto
+    ee_obj_distance = torch.norm(ee_pos - cube_pos, dim=1)
+    
+    # Definir una máscara: solo consideramos el reward de gripper si el efector está cerca del objeto
+    near_object = ee_obj_distance < near_thresh  # Esto es un tensor booleano
+    
+    # Calcular el reward del gripper de forma binaria (o gradual) únicamente cuando esté cerca
+    # (1 - tanh(error / threshold)) dará valores cercanos a 1 cuando el error sea pequeño.
+    gripper_reward = 1 - torch.tanh(error / threshold)
+    
+    # Si no está cerca, forzamos la recompensa a 0 para el gripper (o podrías considerar otro valor neutro).
+    reward = torch.where(near_object, gripper_reward, torch.zeros_like(gripper_reward))
+    
+    # Opcional: imprimir datos para depuración
+    # print("gripper_state:", gripper_state)
+    # print("target_close:", target_close)
+    # print("Error en gripper (norma) =", error)
+    # print("Distancia EE-objeto =", ee_obj_distance)
+    # print("Recompensa de cierre de gripper =", reward)
     
     return reward
